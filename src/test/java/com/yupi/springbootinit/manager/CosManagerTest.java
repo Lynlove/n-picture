@@ -18,6 +18,6 @@ class CosManagerTest {
 
     @Test
     void putObject() {
-        cosManager.putObject("test", "D:\\code\\ideaProject\\PlanetProject\\n-picture-backend-master\\src\\main\\resources\\test_excel.xlsx");
+        cosManager.putObject("test", "D:\\code\\ideaProject\\PlanetProject\\n-picture\\n-picture-backend\\src\\main\\resources\\test_excel.xlsx");
     }
 }
