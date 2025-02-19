@@ -73,6 +73,13 @@
             <artifactId>jsoup</artifactId>
             <version>1.15.3</version>
         </dependency>
+        <!-- 本地缓存 Caffeine -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>2.9.2</version>
+        </dependency>
+
 
         <!-- https://cloud.tencent.com/document/product/436/10199-->
         <dependency>

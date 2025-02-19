@@ -1,7 +1,10 @@
 package com.lyn.npicturebackend.controller;
 
+import cn.hutool.core.util.RandomUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.lyn.npicturebackend.annotation.AuthCheck;
 import com.lyn.npicturebackend.common.BaseResponse;
 import com.lyn.npicturebackend.common.DeleteRequest;
@@ -20,6 +23,9 @@ import com.lyn.npicturebackend.service.PictureService;
 import com.lyn.npicturebackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -28,6 +34,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 图片接口
@@ -41,6 +48,17 @@ public class PictureController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+
+    private final Cache<String, String> LOCAL_CACHE =
+            Caffeine.newBuilder().initialCapacity(1024)
+                    .maximumSize(10000L)
+                    // 缓存 5 分钟移除
+                    .expireAfterWrite(5L, TimeUnit.MINUTES)
+                    .build();
+
 
     /**
      * 上传图片（可重新上传）
@@ -184,6 +202,63 @@ public class PictureController {
         // 获取封装类
         return ResultUtils.success(pictureService.getPictureVOPage(picturePage, request));
     }
+
+    @PostMapping("/list/page/vo/cache")
+    public BaseResponse<Page<PictureVO>> listPictureVOByPageWithCache(@RequestBody PictureQueryRequest pictureQueryRequest,
+                                                                      HttpServletRequest request) {
+        long current = pictureQueryRequest.getCurrent();
+        long size = pictureQueryRequest.getPageSize();
+        // 限制爬虫
+        ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
+        // 普通用户默认只能查看已过审的数据
+        pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
+
+        // 构建缓存 key
+        String queryCondition = JSONUtil.toJsonStr(pictureQueryRequest);
+        String hashKey = DigestUtils.md5DigestAsHex(queryCondition.getBytes());
+        String cacheKey = "npicture:listPictureVOByPage:" + hashKey;
+
+
+
+        // 1. 查询本地缓存（Caffeine）
+        String cachedValue = LOCAL_CACHE.getIfPresent(cacheKey);
+        if (cachedValue != null) {
+            Page<PictureVO> cachedPage = JSONUtil.toBean(cachedValue, Page.class);
+            return ResultUtils.success(cachedPage);
+        }
+
+
+        // 2. 从 Redis 缓存中查询
+        ValueOperations<String, String> valueOps = stringRedisTemplate.opsForValue();
+        cachedValue = valueOps.get(cacheKey);
+        if (cachedValue != null) {
+            // 如果缓存命中redis，存入本地缓存并返回结果
+            LOCAL_CACHE.put(cacheKey, cachedValue);
+            Page<PictureVO> cachedPage = JSONUtil.toBean(cachedValue, Page.class);
+            return ResultUtils.success(cachedPage);
+        }
+
+        //3. 查询数据库
+        Page<Picture> picturePage = pictureService.page(new Page<>(current, size),
+                pictureService.getQueryWrapper(pictureQueryRequest));
+        // 获取封装类
+        Page<PictureVO> pictureVOPage = pictureService.getPictureVOPage(picturePage, request);
+
+        //4. 存入缓存
+        String cacheValue = JSONUtil.toJsonStr(pictureVOPage);
+
+        // 更新本地缓存
+        LOCAL_CACHE.put(cacheKey, cacheValue);
+
+        // 更新redis缓存
+        // 5 - 10 分钟随机过期，防止雪崩
+        int cacheExpireTime = 300 +  RandomUtil.randomInt(0, 300);
+        valueOps.set(cacheKey, cacheValue, cacheExpireTime, TimeUnit.SECONDS);
+
+        // 返回结果
+        return ResultUtils.success(pictureVOPage);
+    }
+
 
     /**
      * 编辑图片（给用户使用）
