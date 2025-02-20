@@ -2,14 +2,12 @@ package com.lyn.npicturebackend.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.lyn.npicturebackend.model.dto.picture.PictureQueryRequest;
-import com.lyn.npicturebackend.model.dto.picture.PictureReviewRequest;
-import com.lyn.npicturebackend.model.dto.picture.PictureUploadByBatchRequest;
-import com.lyn.npicturebackend.model.dto.picture.PictureUploadRequest;
+import com.lyn.npicturebackend.model.dto.picture.*;
 import com.lyn.npicturebackend.model.entity.Picture;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.lyn.npicturebackend.model.entity.User;
 import com.lyn.npicturebackend.model.vo.PictureVO;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
@@ -33,6 +31,16 @@ public interface PictureService extends IService<Picture> {
     PictureVO uploadPicture(Object inputSource,
                             PictureUploadRequest pictureUploadRequest,
                             User loginUser);
+
+    void checkPictureAuth(User loginUser, Picture picture);
+
+    void deletePicture(long pictureId, User loginUser);
+
+    @Async
+    void clearPictureFile(Picture oldPicture);
+
+    void editPicture(PictureEditRequest pictureEditRequest, User loginUser);
+
     QueryWrapper<Picture> getQueryWrapper(PictureQueryRequest pictureQueryRequest);
 
     PictureVO getPictureVO(Picture picture, HttpServletRequest request);
