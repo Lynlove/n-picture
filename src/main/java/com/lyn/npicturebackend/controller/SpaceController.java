@@ -12,6 +12,7 @@ import com.lyn.npicturebackend.common.ResultUtils;
 import com.lyn.npicturebackend.constant.UserConstant;
 import com.lyn.npicturebackend.exception.BusinessException;
 import com.lyn.npicturebackend.exception.ThrowUtils;
+import com.lyn.npicturebackend.manager.auth.SpaceUserAuthManager;
 import com.lyn.npicturebackend.model.dto.space.*;
 import com.lyn.npicturebackend.model.entity.Space;
 import com.lyn.npicturebackend.model.entity.User;
@@ -47,6 +48,9 @@ public class SpaceController {
 
     @Resource
     private SpaceService spaceService;
+
+    @Resource
+    private SpaceUserAuthManager spaceUserAuthManager;
 
     @PostMapping("/add")
     public BaseResponse<Long> addSpace(@RequestBody SpaceAddRequest spaceAddRequest, HttpServletRequest request) {
@@ -129,8 +133,12 @@ public class SpaceController {
         // 查询数据库
         Space space = spaceService.getById(id);
         ThrowUtils.throwIf(space == null, ErrorCode.NOT_FOUND_ERROR);
+        SpaceVO spaceVO = spaceService.getSpaceVO(space, request);
+        User loginUser = userService.getLoginUser(request);
+        List<String> permissionList = spaceUserAuthManager.getPermissionList(space, loginUser);
+        spaceVO.setPermissionList(permissionList);
         // 获取封装类
-        return ResultUtils.success(spaceService.getSpaceVO(space, request));
+        return ResultUtils.success(spaceVO);
     }
 
     /**
