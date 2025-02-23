@@ -1,5 +1,6 @@
 package com.lyn.npicturebackend;
 
+import org.apache.shardingsphere.spring.boot.ShardingSphereAutoConfiguration;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -12,9 +13,11 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  *
 
  */
+@SpringBootApplication(exclude = {ShardingSphereAutoConfiguration.class})
+
 // todo 如需开启 Redis，须移除 exclude 中的内容
 //@SpringBootApplication(exclude = {RedisAutoConfiguration.class})
-@SpringBootApplication
+//@SpringBootApplication
 @MapperScan("com.lyn.npicturebackend.mapper")
 @EnableScheduling
 @EnableAspectJAutoProxy(proxyTargetClass = true, exposeProxy = true)
